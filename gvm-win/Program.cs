@@ -176,7 +176,7 @@ namespace gvm_win
             if (removeOptions.Index == null) return;
 
             int index = 0;
-            if (int.TryParse(removeOptions.Index, out index)) { Console.WriteLine("Unable to parse input version! Please use an index listed in `gvm-win list`."); return; }
+            if (!int.TryParse(removeOptions.Index, out index)) { Console.WriteLine("Unable to parse input version! Please use an index listed in `gvm-win list`."); return; }
             
             if (index < 0 || index >= GVMConfig.installations.Count)
             {

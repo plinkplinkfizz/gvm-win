@@ -1,0 +1,6 @@
+[submodule "commandline"]
+	path = commandline
+	url = https://github.com/commandlineparser/commandline.git
+[submodule "Downloader"]
+	path = Downloader
+	url = https://github.com/bezzad/Downloader.git

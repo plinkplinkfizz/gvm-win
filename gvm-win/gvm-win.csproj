@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0-windows10.0.22621.0</TargetFramework>
+    <RootNamespace>gvm_win</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <Title>GVM for Windoze</Title>
+    <ApplicationIcon>gvm-win.ico</ApplicationIcon>
+    <Authors>plinkplinkfizz</Authors>
+    <Description>A simple Go version manager for Windows</Description>
+    <Copyright>Copyleft (ɔ) 2023 - Gaurav Joseph</Copyright>
+    <PackageIcon>gvm-win.png</PackageIcon>
+    <PackageLicenseFile>gpl-3.0.txt</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="gvm-win.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\gpl-3.0.txt">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\gvm-win.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\commandline\src\CommandLine\CommandLine.csproj" />
+    <ProjectReference Include="..\Downloader\src\Downloader\Downloader.csproj" />
+  </ItemGroup>
+
+</Project>

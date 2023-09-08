@@ -177,7 +177,7 @@ namespace gvm_win
 
             int index = 0;
             if (!int.TryParse(removeOptions.Index, out index)) { Console.WriteLine("Unable to parse input version! Please use an index listed in `gvm-win list`."); return; }
-            
+
             if (index < 0 || index >= GVMConfig.installations.Count)
             {
                 Console.WriteLine("The index you have mentioned does not exist! Please use an index listed in `gvm-win list`.");
@@ -191,6 +191,7 @@ namespace gvm_win
             try { Directory.Delete(System.IO.Path.Combine(GVMConfig.dataDirectory, GVMConfig.installations[index].Id), true); }
             catch (DirectoryNotFoundException) { Console.WriteLine("Directory not found! Removing entries from database anyway!"); }
             catch { Console.WriteLine("Unable to remove installation!"); return; }
+            if (GVMConfig.installations[index].Id == GVMConfig.current) { RunUnset(new UnsetOptions()); }
             GVMConfig.installations.RemoveAt(index);
             GVMConfig.Save();
         }

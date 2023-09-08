@@ -188,7 +188,16 @@ namespace gvm_win
             if (response == null || response.ToLower() != "y") return;
 
             Console.WriteLine($"Deleting installation at {GVMConfig.installations[index].Path}");
-            try { Directory.Delete(System.IO.Path.Combine(GVMConfig.dataDirectory, GVMConfig.installations[index].Id), true); }
+            try 
+            {
+                string deletePath = System.IO.Path.Combine(GVMConfig.dataDirectory, GVMConfig.installations[index].Id);
+                DirectoryInfo directoryInfo = new DirectoryInfo(deletePath) { Attributes = FileAttributes.Normal };
+                foreach (FileSystemInfo fileSystemInfo in directoryInfo.GetFileSystemInfos("*", SearchOption.AllDirectories)) 
+                {
+                    fileSystemInfo.Attributes = FileAttributes.Normal;
+                }
+                directoryInfo.Delete(true);
+            }
             catch (DirectoryNotFoundException) { Console.WriteLine("Directory not found! Removing entries from database anyway!"); }
             catch { Console.WriteLine("Unable to remove installation!"); return; }
             if (GVMConfig.installations[index].Id == GVMConfig.current) { RunUnset(new UnsetOptions()); }

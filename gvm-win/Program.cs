@@ -1,6 +1,5 @@
 ﻿using CommandLine;
 using Downloader;
-using System;
 using System.IO.Compression;
 using System.Reflection;
 
@@ -8,8 +7,8 @@ namespace gvm_win
 {
     internal class Program
     {
-        const string GO_BASE_URL = "https://go.dev/dl/";
-        const string GO_VERSIONS_ALL_URL = "https://go.dev/dl/?mode=json&include=all";
+        private const string GoBaseUrl = "https://go.dev/dl/";
+        private const string GoVersionsAllUrl = "https://go.dev/dl/?mode=json&include=all";
 
         static void Main(string[] args)
         {
@@ -18,27 +17,25 @@ namespace gvm_win
             parserResult.WithParsed<RemoveOptions>(o => RunRemove(o));
             parserResult.WithParsed<ListOptions>(o => RunList(o));
             parserResult.WithParsed<SetOptions>(o => RunSet(o));
-            parserResult.WithParsed<UnsetOptions>(o => RunUnset(o));
-            parserResult.WithParsed<CurrentOptions>(o => RunCurrent(o));
+            parserResult.WithParsed<UnsetOptions>(_ => RunUnset());
+            parserResult.WithParsed<CurrentOptions>(_ => RunCurrent());
         }
 
-        public static void RunInstall(InstallOptions installOptions)
+        private static void RunInstall(InstallOptions installOptions)
         {
             string uniqueId = Guid.NewGuid().ToString("N");
 
             if (installOptions.Version != null)
             {
-                foreach (GoInstallation goInstallation in GVMConfig.installations)
+                foreach (GoInstallation goInstallation in GvmConfig.installations)
                 {
-                    if (goInstallation.Version == installOptions.Version && !goInstallation.Local)
-                    {
-                        Console.WriteLine("This version is already installed! You may remove and install it again.");
-                        return;
-                    }
+                    if (goInstallation.Version != installOptions.Version || goInstallation.Local) continue;
+                    Console.WriteLine("This version is already installed! You may remove and install it again.");
+                    return;
                 }
                 
-                List<GoVersion>? goVersions = null;
-                try { goVersions = CustomUtils.GetJSONData<List<GoVersion>>(GO_VERSIONS_ALL_URL); }
+                List<GoVersion>? goVersions;
+                try { goVersions = CustomUtils.GetJsonData<List<GoVersion>>(GoVersionsAllUrl); }
                 catch (Exception ex) { Console.WriteLine(ex.Message); return; }
                 if (goVersions == null)
                 {
@@ -49,7 +46,7 @@ namespace gvm_win
                 GoVersion? installVersion = null;
                 foreach (GoVersion goVersion in goVersions)
                 {
-                    if (goVersion.version?.Substring(2) == installOptions.Version)
+                    if (goVersion.version.Substring(2) == installOptions.Version)
                     {
                         installVersion = goVersion;
                         Console.WriteLine($"Version match found for {installOptions.Version}...");
@@ -65,7 +62,7 @@ namespace gvm_win
                 GoVersionFile? installFile = null;
                 foreach (GoVersionFile goVersionFile in installVersion.files)
                 {
-                    if (goVersionFile.os == "windows" && goVersionFile.arch == "amd64" && goVersionFile.kind == "archive")
+                    if (goVersionFile is { os: "windows", arch: "amd64", kind: "archive" })
                     {
                         Console.WriteLine("Found a download candidate for Windows amd64...");
                         installFile = goVersionFile;
@@ -78,7 +75,7 @@ namespace gvm_win
                     return;
                 }
 
-                string installDirectory = System.IO.Path.Combine(GVMConfig.dataDirectory, uniqueId);
+                string installDirectory = Path.Combine(GvmConfig.dataDirectory, uniqueId);
                 if (!Directory.Exists(installDirectory))
                 {
                     try { Directory.CreateDirectory(installDirectory); }
@@ -89,25 +86,25 @@ namespace gvm_win
                     ChunkCount = 50,
                     ParallelCount = 8,
                     ParallelDownload = true,
-                    RequestConfiguration = { UserAgent = $"Mozilla/5.0 (Windows; U; Windows NT 10.4; x64; en-US) gvm-win/{Assembly.GetEntryAssembly().GetName().Version}", },
+                    RequestConfiguration = { UserAgent = $"Mozilla/5.0 (Windows; U; Windows NT 10.4; x64; en-US) gvm-win/{Assembly.GetEntryAssembly()?.GetName().Version}", },
                 };
                 DownloadService downloadService = new DownloadService(downloadConfiguration);
 
-                Console.WriteLine($"Downloading file: {GO_BASE_URL}{installFile.filename}");
-                downloadService.DownloadFileTaskAsync($"{GO_BASE_URL}{installFile.filename}", System.IO.Path.Combine(installDirectory, installFile.filename)).Wait();
+                Console.WriteLine($"Downloading file: {GoBaseUrl}{installFile.filename}");
+                downloadService.DownloadFileTaskAsync($"{GoBaseUrl}{installFile.filename}", Path.Combine(installDirectory, installFile.filename)).Wait();
                 switch (downloadService.Status)
                 {
                     case DownloadStatus.Failed: Console.WriteLine("Download failed! Try again maybe!"); return;
                     case DownloadStatus.Completed: Console.WriteLine("Download completed..."); break;
                     default: Console.WriteLine("Download status in limbo!"); return;
                 }
-                if (CustomUtils.GetChecksum(System.IO.Path.Combine(installDirectory, installFile.filename), HashingAlgoTypes.SHA256).ToLower() != installFile.sha256.ToLower())
+                if (CustomUtils.GetChecksum(Path.Combine(installDirectory, installFile.filename), HashingAlgoTypes.Sha256)?.ToLower() != installFile.sha256.ToLower())
                 {
                     Console.WriteLine("Checksum verification failed!");
                     return;
                 }
 
-                try { ZipFile.ExtractToDirectory(System.IO.Path.Combine(installDirectory, installFile.filename), installDirectory); }
+                try { ZipFile.ExtractToDirectory(Path.Combine(installDirectory, installFile.filename), installDirectory); }
                 catch { Console.WriteLine("Unable to extract archive into custom directory!"); return; }
                 GoInstallation newGoInstallation = new GoInstallation
                 {
@@ -115,16 +112,16 @@ namespace gvm_win
                     Version = installVersion.version.Substring(2),
                     Stable = installVersion.stable,
                     Local = false,
-                    Path = System.IO.Path.Combine(installDirectory, "go"),
+                    Path = Path.Combine(installDirectory, "go"),
                 };
-                GVMConfig.installations.Add(newGoInstallation);
-                GVMConfig.Save();
+                GvmConfig.installations.Add(newGoInstallation);
+                GvmConfig.Save();
                 Console.WriteLine("A new go installation has been added to the manager! You can use it by using `gvm-win set -i <index>`.");
             }
             else if (installOptions.Local != null)
             {
-                string fullPath = System.IO.Path.GetFullPath(installOptions.Local);
-                foreach (GoInstallation goInstallation in GVMConfig.installations)
+                string fullPath = Path.GetFullPath(installOptions.Local);
+                foreach (GoInstallation goInstallation in GvmConfig.installations)
                 {
                     if (goInstallation.Path == fullPath)
                     {
@@ -134,7 +131,7 @@ namespace gvm_win
                 }
                 try
                 {
-                    List<string> output = CustomUtils.RunCommand(System.IO.Path.Combine(installOptions.Local, "bin\\go.exe"), "version").Split(' ').ToList();
+                    List<string> output = CustomUtils.RunCommand(Path.Combine(installOptions.Local, "bin\\go.exe"), "version").Split(' ').ToList();
                     if (output[0] == "go" && output[1] == "version")
                     {
                         GoInstallation goInstallation = new GoInstallation
@@ -146,12 +143,12 @@ namespace gvm_win
                         };
                         try
                         {
-                            List<GoVersion>? goVersions = CustomUtils.GetJSONData<List<GoVersion>>(GO_VERSIONS_ALL_URL);
+                            List<GoVersion>? goVersions = CustomUtils.GetJsonData<List<GoVersion>>(GoVersionsAllUrl);
                             if (goVersions != null)
                             {
                                 foreach (GoVersion goVersion in goVersions)
                                 {
-                                    if (goVersion.version?.Substring(2) == goInstallation.Version)
+                                    if (goVersion.version.Substring(2) == goInstallation.Version)
                                     {
                                         Console.WriteLine("Version matched with server!");
                                         goInstallation.Stable = goVersion.stable;
@@ -162,8 +159,8 @@ namespace gvm_win
                             else { Console.WriteLine("There was an error getting data from server! Setting stability to unstable!"); }
                         }
                         catch (Exception ex) { Console.WriteLine($"{ex.Message} Setting stability to unstable!"); }
-                        GVMConfig.installations.Add(goInstallation);
-                        GVMConfig.Save();
+                        GvmConfig.installations.Add(goInstallation);
+                        GvmConfig.Save();
                         Console.WriteLine($"Go version {goInstallation.Version} added successfully from {fullPath}");
                     }
                 }
@@ -171,14 +168,13 @@ namespace gvm_win
             }
         }
 
-        public static void RunRemove(RemoveOptions removeOptions)
+        private static void RunRemove(RemoveOptions removeOptions)
         {
             if (removeOptions.Index == null) return;
 
-            int index = 0;
-            if (!int.TryParse(removeOptions.Index, out index)) { Console.WriteLine("Unable to parse input version! Please use an index listed in `gvm-win list`."); return; }
+            if (!int.TryParse(removeOptions.Index, out var index)) { Console.WriteLine("Unable to parse input version! Please use an index listed in `gvm-win list`."); return; }
 
-            if (index < 0 || index >= GVMConfig.installations.Count)
+            if (index < 0 || index >= GvmConfig.installations.Count)
             {
                 Console.WriteLine("The index you have mentioned does not exist! Please use an index listed in `gvm-win list`.");
                 return;
@@ -187,10 +183,10 @@ namespace gvm_win
             string? response = Console.ReadLine();
             if (response == null || response.ToLower() != "y") return;
 
-            Console.WriteLine($"Deleting installation at {GVMConfig.installations[index].Path}");
+            Console.WriteLine($"Deleting installation at {GvmConfig.installations[index].Path}");
             try 
             {
-                string deletePath = System.IO.Path.Combine(GVMConfig.dataDirectory, GVMConfig.installations[index].Id);
+                string deletePath = Path.Combine(GvmConfig.dataDirectory, GvmConfig.installations[index].Id);
                 DirectoryInfo directoryInfo = new DirectoryInfo(deletePath) { Attributes = FileAttributes.Normal };
                 foreach (FileSystemInfo fileSystemInfo in directoryInfo.GetFileSystemInfos("*", SearchOption.AllDirectories)) 
                 {
@@ -200,17 +196,17 @@ namespace gvm_win
             }
             catch (DirectoryNotFoundException) { Console.WriteLine("Directory not found! Removing entries from database anyway!"); }
             catch { Console.WriteLine("Unable to remove installation!"); return; }
-            if (GVMConfig.installations[index].Id == GVMConfig.current) { RunUnset(new UnsetOptions()); }
-            GVMConfig.installations.RemoveAt(index);
-            GVMConfig.Save();
+            if (GvmConfig.installations[index].Id == GvmConfig.current) { RunUnset(); }
+            GvmConfig.installations.RemoveAt(index);
+            GvmConfig.Save();
         }
 
-        public static void RunList(ListOptions listOptions)
+        private static void RunList(ListOptions listOptions)
         {
             if (listOptions.Remote)
             {
                 List<GoVersion>? goVersions = null;
-                try { goVersions = CustomUtils.GetJSONData<List<GoVersion>>(GO_VERSIONS_ALL_URL); }
+                try { goVersions = CustomUtils.GetJsonData<List<GoVersion>>(GoVersionsAllUrl); }
                 catch (Exception ex) { Console.WriteLine(ex.Message); }
 
                 if (goVersions != null)
@@ -220,12 +216,12 @@ namespace gvm_win
                         if (goVersion.stable)
                         {
                             Console.ForegroundColor = ConsoleColor.Green;
-                            Console.WriteLine($"{goVersion.version?.Substring(2)} (stable)");
+                            Console.WriteLine($"{goVersion.version.Substring(2)} (stable)");
                         }
                         else
                         {
                             Console.ForegroundColor = ConsoleColor.Red;
-                            Console.WriteLine($"{goVersion.version?.Substring(2)} (unstable)");
+                            Console.WriteLine($"{goVersion.version.Substring(2)} (unstable)");
                         }
                         Console.ResetColor();
                     }
@@ -233,13 +229,13 @@ namespace gvm_win
             }
             else
             {
-                if (GVMConfig.installations.Count == 0)
+                if (GvmConfig.installations.Count == 0)
                 {
                     Console.WriteLine("No Go installations found!");
                     return;
                 }
                 int i = 0;
-                foreach (GoInstallation goInstallation in GVMConfig.installations)
+                foreach (GoInstallation goInstallation in GvmConfig.installations)
                 {
                     Console.WriteLine($"[{i}] => {goInstallation.Version} ({(goInstallation.Local ? "Local, " : "")}{(goInstallation.Stable ? "Stable" : "Unstable")}) @ {goInstallation.Path}");
                     i++;
@@ -247,12 +243,11 @@ namespace gvm_win
             }
         }
 
-        public static void RunSet(SetOptions setOptions)
+        private static void RunSet(SetOptions setOptions)
         {
-            int index = 0;
-            if (!int.TryParse(setOptions.Index, out index) ) { Console.WriteLine("Failed to parse the input!"); return; }
+            if (!int.TryParse(setOptions.Index, out var index) ) { Console.WriteLine("Failed to parse the input!"); return; }
             
-            if (index < 0 || index >= GVMConfig.installations.Count)
+            if (index < 0 || index >= GvmConfig.installations.Count)
             {
                 Console.WriteLine("The index you have mentioned does not exist! Please use an index listed in `gvm-win list`.");
                 return;
@@ -264,17 +259,18 @@ namespace gvm_win
             {
                 variableTarget = EnvironmentVariableTarget.Machine;
             }
-            List<string> paths = null;
-            try { paths = Environment.GetEnvironmentVariable("Path", variableTarget).Split(';', StringSplitOptions.RemoveEmptyEntries).ToList(); }
+            List<string>? paths;
+            try { paths = Environment.GetEnvironmentVariable("Path", variableTarget)?.Split(';', StringSplitOptions.RemoveEmptyEntries).ToList(); }
             catch { Console.WriteLine("Unable to enumerate environment! Please try restarting your console."); return; }
 
-            for (int i = paths.Count - 1; i >= 0; i--) { if (GVMConfig.currentBinPath == paths[i]) { paths.RemoveAt(i); } }
+            if (paths == null) { Console.WriteLine("Unable to access environment!"); return; }
+            for (int i = paths.Count - 1; i >= 0; i--) { if (GvmConfig.currentBinPath == paths[i]) { paths.RemoveAt(i); } }
 
-            GVMConfig.current = GVMConfig.installations[index].Id;
-            GVMConfig.currentBinPath = System.IO.Path.Combine(GVMConfig.installations[index].Path, "bin");
-            paths.Add(GVMConfig.currentBinPath);
+            GvmConfig.current = GvmConfig.installations[index].Id;
+            GvmConfig.currentBinPath = Path.Combine(GvmConfig.installations[index].Path, "bin");
+            paths.Add(GvmConfig.currentBinPath);
 
-            string goPath = System.IO.Path.Combine(GVMConfig.dataDirectory, GVMConfig.installations[index].Id, "workspace");
+            string goPath = Path.Combine(GvmConfig.dataDirectory, GvmConfig.installations[index].Id, "workspace");
             if (!Directory.Exists(goPath))
             {
                 try { Directory.CreateDirectory(goPath); }
@@ -282,16 +278,16 @@ namespace gvm_win
             }
 
             Environment.SetEnvironmentVariable("Path", string.Join(';', paths), variableTarget);
-            Environment.SetEnvironmentVariable("GOROOT", GVMConfig.installations[index].Path, variableTarget);
+            Environment.SetEnvironmentVariable("GOROOT", GvmConfig.installations[index].Path, variableTarget);
             Environment.SetEnvironmentVariable("GOPATH", goPath, variableTarget);
 
-            GVMConfig.Save();
+            GvmConfig.Save();
 
-            Console.WriteLine($"The system is now set to use go version {GVMConfig.installations[index].Version}!");
+            Console.WriteLine($"The system is now set to use go version {GvmConfig.installations[index].Version}!");
 
         }
 
-        public static void RunUnset(UnsetOptions unsetOptions) 
+        private static void RunUnset() 
         {
             EnvironmentVariableTarget variableTarget = EnvironmentVariableTarget.User;
             using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
@@ -301,30 +297,31 @@ namespace gvm_win
                 variableTarget = EnvironmentVariableTarget.Machine;
             }
             
-            List<string> paths = null;
-            try { paths = Environment.GetEnvironmentVariable("Path", variableTarget).Split(';', StringSplitOptions.RemoveEmptyEntries).ToList(); }
+            List<string>? paths;
+            try { paths = Environment.GetEnvironmentVariable("Path", variableTarget)?.Split(';', StringSplitOptions.RemoveEmptyEntries).ToList(); }
             catch { Console.WriteLine("Unable to enumerate environment! Please try restarting your console."); return; }
+            
+            if (paths == null) { Console.WriteLine("Unable to access environment!"); return; }
+            for (int i = paths.Count - 1; i >= 0; i--) { if (GvmConfig.currentBinPath == paths[i]) { paths.RemoveAt(i); } }
 
-            for (int i = paths.Count - 1; i >= 0; i--) { if (GVMConfig.currentBinPath == paths[i]) { paths.RemoveAt(i); } }
-
-            GVMConfig.current = null;
-            GVMConfig.currentBinPath = null;
+            GvmConfig.current = string.Empty;
+            GvmConfig.currentBinPath = string.Empty;
 
             Environment.SetEnvironmentVariable("Path", string.Join(';', paths), variableTarget);
             Environment.SetEnvironmentVariable("GOROOT", null, variableTarget);
             Environment.SetEnvironmentVariable("GOPATH", null, variableTarget);
 
-            GVMConfig.Save();
+            GvmConfig.Save();
 
             Console.WriteLine("All variables pertaining to Go have been removed from the environment.");
         }
 
-        public static void RunCurrent(CurrentOptions currentOptions)
+        private static void RunCurrent()
         {
-            if(GVMConfig.current == null || GVMConfig.current == string.Empty) { Console.WriteLine("No go version set as default!"); return; }
-            foreach(GoInstallation goInstallation in GVMConfig.installations) 
+            if(string.IsNullOrEmpty(GvmConfig.current)) { Console.WriteLine("No go version set as default!"); return; }
+            foreach(GoInstallation goInstallation in GvmConfig.installations) 
             {
-                if(GVMConfig.current == goInstallation.Id) 
+                if(GvmConfig.current == goInstallation.Id) 
                 {
                     Console.WriteLine($"{goInstallation.Id} => {goInstallation.Version} ({(goInstallation.Local ? "Local, " : "")}{(goInstallation.Stable ? "Stable" : "Unstable")}) @ {goInstallation.Path}");
                     return;

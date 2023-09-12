@@ -3,35 +3,33 @@
 
 namespace gvm_win
 {
-    internal sealed class GVMConfig
+    internal sealed class GvmConfig
     {
-        private const string SAVE_FILE = ".gvm-win";
-        private const string DATA_DIRECTORY = "gvm-win-data";
+        private const string SaveFile = ".gvm-win";
+        private const string DataDirectory = "gvm-win-data";
 
-        private static string saveFileLocation;
+        private static readonly string SaveFileLocation;
 
-        private static GVMConfig? instance = new();
+        private static readonly GvmConfig? Instance;
 
-        public static GVMConfig? Instance { get {  return instance; } }
-
-        static GVMConfig() 
+        static GvmConfig() 
         {
-            dataDirectory = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), DATA_DIRECTORY);
+            dataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), DataDirectory);
             installations = new List<GoInstallation>();
 
-            string userSaveFile = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), SAVE_FILE);
-            string localSaveFile = System.IO.Path.Combine(AppContext.BaseDirectory, SAVE_FILE);
+            string userSaveFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), SaveFile);
+            string localSaveFile = Path.Combine(AppContext.BaseDirectory, SaveFile);
 
-            if (File.Exists(localSaveFile)) { saveFileLocation = localSaveFile; }
-            else if (File.Exists(userSaveFile)) { saveFileLocation = userSaveFile; }
-            else { saveFileLocation = userSaveFile; Save(); }
+            if (File.Exists(localSaveFile)) { SaveFileLocation = localSaveFile; }
+            else if (File.Exists(userSaveFile)) { SaveFileLocation = userSaveFile; }
+            else { SaveFileLocation = userSaveFile; Save(); }
 
             try
             {
-                string config = File.ReadAllText(saveFileLocation);
-                instance = JsonConvert.DeserializeObject<GVMConfig>(config);
+                string config = File.ReadAllText(SaveFileLocation);
+                Instance = JsonConvert.DeserializeObject<GvmConfig>(config);
             }
-            catch { throw new Exception($"Unable to read file {saveFileLocation}!"); }
+            catch { throw new Exception($"Unable to read file {SaveFileLocation}!"); }
 
             if (!Directory.Exists(dataDirectory))
             {
@@ -40,30 +38,26 @@ namespace gvm_win
             }
         }
 
-        [JsonProperty]
-        public static string dataDirectory { get; set; }
+        [JsonProperty] public static string dataDirectory { get; set; }
 
-        [JsonProperty]
-        public static List<GoInstallation> installations { get; set; }
+        [JsonProperty] public static List<GoInstallation> installations { get; set; }
 
-        [JsonProperty]
-        public static string current { get; set; }
+        [JsonProperty] public static string current { get; set; } = String.Empty;
 
-        [JsonProperty]
-        public static string currentBinPath { get; set; }
+        [JsonProperty] public static string currentBinPath { get; set; } = String.Empty;
 
         public static void Save()
         {
-            try { File.WriteAllText(saveFileLocation, JsonConvert.SerializeObject(instance)); }
-            catch { throw new Exception("Unable to savefile!"); }
+            try { File.WriteAllText(SaveFileLocation, JsonConvert.SerializeObject(Instance)); }
+            catch { throw new Exception("Unable to save file!"); }
         }
     }
 
     internal class GoInstallation
     {
-        public string Id { get; set; } = "";
-        public string Version { get; set; } = "";
-        public string Path { get; set; } = "";
+        public string Id { get; set; } = string.Empty;
+        public string Version { get; set; } = string.Empty;
+        public string Path { get; set; } = string.Empty;
         public bool Local { get; set; }
         public bool Stable { get; set; }
     }

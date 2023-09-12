@@ -13,8 +13,10 @@
     <Description>A simple Go version manager for Windows</Description>
     <Copyright>Copyleft (ɔ) 2023 - Gaurav Joseph</Copyright>
     <PackageIcon>gvm-win.png</PackageIcon>
-    <PackageLicenseFile>gpl-3.0.txt</PackageLicenseFile>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+    <IsPackable>false</IsPackable>
+    <Version>$(VersionPrefix)1.0.0.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,6 +31,10 @@
 
   <ItemGroup>
     <None Include="..\gvm-win.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\LICENSE">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
